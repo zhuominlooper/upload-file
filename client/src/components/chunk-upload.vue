@@ -40,7 +40,8 @@ export default {
       inputInstance: null, // dom的实例
       isLoading: false,
       fileData: null, //保存文件
-      processData:0
+      processData:0,
+      alreadUploadFileCount:0
     };
   },
   mounted() {
@@ -88,7 +89,7 @@ export default {
 
       //获取服务器有没有该文件的断点分片
       let alreadUploadFile = (await this.getChunkData(HashData)).fileList || [];
-
+       this.alreadUploadFileCount= alreadUploadFile.length
       //1.确定分片策略,拿到分片的数量和分片大小
       let maxChunkDataSize = 1024 * 100; //默认最大的分片大小
       let chunkCount = Math.ceil(this.fileData.size / maxChunkDataSize); //向上取值获取分片数量
@@ -99,9 +100,7 @@ export default {
       }
 
       //设置进度条
-      this.processData=parseInt(alreadUploadFile.length/chunkCount *100)
-      console.log('this.processData',this.processData)
-
+      this.processData=parseInt(this.alreadUploadFileCount/chunkCount *100)
       //2.进行分片数据的获取
       let index = 0;
       let chunkFileData = [];
@@ -165,7 +164,7 @@ export default {
               .post("/upload_chunk", fm)
               .then(() => {
                 //进度条增加
-                 this.processData++
+                   this.processData=parseInt((this.alreadUploadFileCount++)/chunkCount *100)
               })
               .catch((err) => {
                 reject(err);

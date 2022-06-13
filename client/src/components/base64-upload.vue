@@ -5,7 +5,7 @@
       id="file-upload"
       type="file"
       class="upload_inp"
-      accept="*"
+      accept=".png,.jpg,.jpeg,.txt"
 
     />
     <el-button @click="chooseFile" type="primary">选择文件</el-button>
