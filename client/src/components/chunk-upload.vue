@@ -23,7 +23,7 @@
         >文件大小:<span>{{ fileData.size }}b</span></el-col
       >
     </el-row>
-    上传进度:<el-progress :percentage="processData" ></el-progress>
+    上传进度:<el-progress :percentage="processData"></el-progress>
     <br />
     <el-link disabled>可以传任意格式的文件，支持大文件上传</el-link>
   </div>
@@ -40,8 +40,9 @@ export default {
       inputInstance: null, // dom的实例
       isLoading: false,
       fileData: null, //保存文件
-      processData:0,
-      alreadUploadFileCount:0
+      processData: 0,
+      alreadUploadFileCount: 0,
+      alreadUploadFile:[] //保存已经上传的文件
     };
   },
   mounted() {
@@ -83,13 +84,11 @@ export default {
     },
     //上传文件
     async uploadFile() {
-      let {HashData, suffix } = await this.getHashName(
-        this.fileData
-      );
+      let { HashData, suffix } = await this.getHashName(this.fileData);
 
       //获取服务器有没有该文件的断点分片
-      let alreadUploadFile = (await this.getChunkData(HashData)).fileList || [];
-       this.alreadUploadFileCount= alreadUploadFile.length
+       this.alreadUploadFile = (await this.getChunkData(HashData)).fileList || [];
+      this.alreadUploadFileCount = this.alreadUploadFile.length;
       //1.确定分片策略,拿到分片的数量和分片大小
       let maxChunkDataSize = 1024 * 100; //默认最大的分片大小
       let chunkCount = Math.ceil(this.fileData.size / maxChunkDataSize); //向上取值获取分片数量
@@ -100,7 +99,9 @@ export default {
       }
 
       //设置进度条
-      this.processData=parseInt(this.alreadUploadFileCount/chunkCount *100)
+      this.processData = parseInt(
+        (this.alreadUploadFileCount / chunkCount) * 100
+      );
       //2.进行分片数据的获取
       let index = 0;
       let chunkFileData = [];
@@ -116,14 +117,66 @@ export default {
       }
 
       //3. 进行分片的上传，采用promise all的原理来实现
-       this.uploadChunkFile(chunkFileData, chunkCount, alreadUploadFile).then((res)=>{
-         console.log(res)
-      //4. 对分片进行合并
-      this.mergeChunkFile(HashData, chunkCount);
-       })
-
-     
+      this.uploadChunkFile(chunkFileData, chunkCount)
+        .then(() => {
+          //4. 对分片进行合并
+          this.mergeChunkFile(HashData, chunkCount);
+        })
+        .catch((err) => {
+          console.error("分片上传错误:", err);
+        });
     },
+    
+    uploadChunkFile(chunkFile, chunkCount) {
+      let self = this;
+      let index = 0;
+      let isComplete = (resolve) => {
+        index++;
+        if (index === chunkCount) {
+          resolve("分片上传成功");
+        }
+      };
+      return new Promise((resolve, reject) => {
+        let maxCount = 10; //最大并发数量
+        let promisePool = []; //并发请求的容器
+        let isError = false; //防止上传错误时其他分片继续上传
+        while (promisePool.length < maxCount) {
+          promiseTask(chunkFile.shift(), chunkFile);
+        }
+        function promiseTask(chunkFileData, chunkFile) {
+          if (isError) {
+            return;
+          }
+          if (!self.alreadUploadFile.includes(chunkFileData.filename)) {
+          let fm = new FormData();
+          fm.append("file", chunkFileData.file);
+          fm.append("filename", chunkFileData.filename);
+          let pengdingPromise = instance.post("/upload_chunk", fm);
+          promisePool.push(pengdingPromise);
+          pengdingPromise
+            .then(() => {
+              promisePool.splice(promisePool.indexOf(pengdingPromise), 1);
+              self.processData = parseInt(
+                (self.alreadUploadFileCount++ / chunkCount) * 100
+              );
+              isComplete(resolve);
+              let data = chunkFile.shift();
+              if (data) {
+                promiseTask(data, chunkFile);
+              }
+            })
+            .catch((err) => {
+              reject(err);
+              isError = true;
+            });
+           }else{
+             isComplete(resolve);
+           }
+
+        }
+      });
+    },
+
     mergeChunkFile(HashData, chunkCount) {
       instance
         .post(
@@ -139,44 +192,12 @@ export default {
           }
         )
         .then(() => {
-          this.processData=100
+          this.processData = 100;
           this.$message.info("上传成功");
         })
         .catch((err) => {
           this.$message.error(err);
         });
-    },
-    uploadChunkFile(chunkFileData, chunkCount, alreadUploadFile) {
-      let index = 0;
-      let isComplete = (resolve) => {
-        index++;
-        if (index === chunkCount) {
-          resolve("分片上传成功");
-        }
-      };
-      return new Promise((resolve, reject) => {
-        chunkFileData.forEach((chunkFile) => {
-          if (!alreadUploadFile.includes(chunkFile.filename)) {
-            let fm = new FormData();
-            fm.append("file", chunkFile.file);
-            fm.append("filename", chunkFile.filename);
-            instance
-              .post("/upload_chunk", fm)
-              .then(() => {
-                //进度条增加
-                   this.processData=parseInt((this.alreadUploadFileCount++)/chunkCount *100)
-              })
-              .catch((err) => {
-                reject(err);
-              })
-              .finally(() => {
-                isComplete(resolve);
-              });
-          } else {
-            isComplete(resolve);
-          }
-        });
-      });
     },
 
     //获取上传文件

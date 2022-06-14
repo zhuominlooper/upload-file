@@ -198,15 +198,15 @@ app.post('/upload_single_base64', async (req, res) => {
 });
 
 // 大文件切片上传 & 合并切片
-const merge = function merge(HASH, count) {
+const merge = function merge(HashData, count) {
     return new Promise(async (resolve, reject) => {
-        let path = `${uploadDir}/${HASH}`,
+        let path = `${uploadDir}/${HashData}`,
             fileList = [],
             suffix,
             isExists;
         isExists = await exists(path);
         if (!isExists) {
-            reject('HASH path is not found!');
+            reject('HashData path is not found!');
             return;
         }
         fileList = fs.readdirSync(path);
@@ -219,13 +219,13 @@ const merge = function merge(HASH, count) {
             return reg.exec(a)[1] - reg.exec(b)[1];
         }).forEach(item => {
             !suffix ? suffix = /\.([0-9a-zA-Z]+)$/.exec(item)[1] : null;
-            fs.appendFileSync(`${uploadDir}/${HASH}.${suffix}`, fs.readFileSync(`${path}/${item}`));
+            fs.appendFileSync(`${uploadDir}/${HashData}.${suffix}`, fs.readFileSync(`${path}/${item}`));
             fs.unlinkSync(`${path}/${item}`);
         });
         fs.rmdirSync(path);
         resolve({
-            path: `${uploadDir}/${HASH}.${suffix}`,
-            filename: `${HASH}.${suffix}`
+            path: `${uploadDir}/${HashData}.${suffix}`,
+            filename: `${HashData}.${suffix}`
         });
     });
 };
@@ -240,11 +240,11 @@ app.post('/upload_chunk', async (req, res) => {
             path = '',
             isExists = false;
         // 创建存放切片的临时目录
-        let [, HASH] = /^([^_]+)_(\d+)/.exec(filename);
-        path = `${uploadDir}/${HASH}`;
+        let [, HashData] = /^([^_]+)_(\d+)/.exec(filename);
+        path = `${uploadDir}/${HashData}`;
         !fs.existsSync(path) ? fs.mkdirSync(path) : null;
         // 把切片存储到临时目录中
-        path = `${uploadDir}/${HASH}/${filename}`;
+        path = `${uploadDir}/${HashData}/${filename}`;
         isExists = await exists(path);
         if (isExists) {
             res.send({
@@ -264,15 +264,9 @@ app.post('/upload_chunk', async (req, res) => {
     }
 });
 app.post('/upload_merge', async (req, res) => {
-    let {
-        HASH,
-        count
-    } = req.body;
+    let { HashData, count } = req.body;
     try {
-        let {
-            filename,
-            path
-        } = await merge(HASH, count);
+        let { filename, path } = await merge(HashData, count);
         res.send({
             code: 0,
             codeText: 'merge success',
@@ -287,11 +281,9 @@ app.post('/upload_merge', async (req, res) => {
     }
 });
 app.get('/upload_already', async (req, res) => {
-    let {
-        HASH
-    } = req.query;
-    let path = `${uploadDir}/${HASH}`,
-        fileList = [];
+    let { HashData } = req.query;
+    let path = `${uploadDir}/${HashData}`,
+      fileList = [];
     try {
         fileList = fs.readdirSync(path);
         fileList = fileList.sort((a, b) => {
