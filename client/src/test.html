@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <button id="btn">获取promise的控制权</button>
+  <script>
+    //案列一，普通的promise
+    let promise = new Promise((resolve, reject) => {
+      resolve("this is promise");
+    });
+    promise.then((res) => {
+      console.log(res);
+    });
+
+    //案列二，获取promsie的控制权
+    let controlFun;
+    let controlPromise = new Promise((resolve, reject) => {
+      controlFun = resolve
+    });
+    controlPromise.then((res) => {
+      console.log(res);
+    });
+    const btn = document.getElementById('btn');
+    btn.onclick = function () {
+      controlFun('这是一个控制权的promise')
+    };
+  </script>
+</body>
+
+</html>
