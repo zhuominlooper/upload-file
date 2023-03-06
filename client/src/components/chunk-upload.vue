@@ -16,10 +16,10 @@
       >上传文件</el-button
     >
     <el-row v-if="fileData" :gutter="16">
-      <el-col :span="16"
+      <el-col :span="14"
         >文件名称:<span>{{ fileData.name }}</span></el-col
       >
-      <el-col :span="8"
+      <el-col :span="10"
         >文件大小:<span>{{ fileData.size }}b</span></el-col
       >
     </el-row>
@@ -55,7 +55,6 @@ export default {
     chooseFile() {
       this.inputInstance.click();
     },
-
     //获取已经上传的分片
     getChunkData(HashData) {
       return instance.get("/upload_already", {
